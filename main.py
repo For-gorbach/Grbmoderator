@@ -1,19 +1,3 @@
-#pylint:disable=R1702
-#pylint:disable=W0621
-#pylint:disable=R1721
-#pylint:disable=W0703
-#pylint:disable=W0105
-#pylint:disable=W1309
-#pylint:disable=W0702
-#pylint:disable=C0103
-#pylint:disable=C0303
-#pylint:disable=C0114
-#pylint:disable=C0411
-#pylint:disable=C0301
-#pylint:disable=C0116
-#pylint:disable=W0611
-#pylint:disable=W0401
-#pylint:disable=W0612
 from aiogram import Bot, Dispatcher, executor, types  # импорт библиотеки для создания ботов
 from settings import *  # импортируем переменные из файоа настроек
 from time import sleep  # импорт функции паузы
