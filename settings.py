@@ -1,7 +1,7 @@
 from alphabet import *  # импорт алфавита (его не стоит трогать)
 import re  # регулярки
 
-token = "5754030767:AAGWTWKLyL2gmtr0HzAI40vAhGg_MRc9cBc"  # токен бота
+token = ""  # токен бота
 chat_id = "-1001677699713"  # id чата на который будет реагировать бот
 
 dangertext = [
