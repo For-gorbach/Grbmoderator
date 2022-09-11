@@ -5,7 +5,7 @@ from time import sleep  # импорт функции паузы
 import json  # библиотека для упрощенной работы со словарями
 import pickledb  # библиотека для простых баз данных
 import re  # регулярки
-from datetime.datetime import now
+from datetime import datetime
 
 bot = Bot(token=token)  # создаем клиент бота
 dp = Dispatcher(bot)  # "диспетчер" бота (для запуска и обозначения функций)
