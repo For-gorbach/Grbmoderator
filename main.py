@@ -5,7 +5,8 @@ from time import sleep  # импорт функции паузы
 import json  # библиотека для упрощенной работы со словарями
 import pickledb  # библиотека для простых баз данных
 import re  # регулярки
-from datetime import datetime
+from datetime import datetime, timedelta  # модуль для работы с временем
+
 
 bot = Bot(token=token)  # создаем клиент бота
 dp = Dispatcher(bot)  # "диспетчер" бота (для запуска и обозначения функций)
@@ -16,7 +17,7 @@ databan = {}  # данные о репортах
 
 hour = 60*60
 
-bans_time = [hour, hour*6, hour*12, hour*24, "ban"]
+time = datetime.now()-timedelta(seconds=int(report_sleep))
 
 
 @dp.message_handler(commands=["start", "help"])  # при командах /start или /help запускаем функцию
@@ -32,14 +33,23 @@ async def start(message):  # функция вызываемая при /start �
 
 @dp.message_handler(commands=["report"])  # при комманде /report выполнятся функция
 async def report(message):  # при комманде /report выполнятся функция
-    global databan  # подключаем переменную databan к функции (даем право изменять её)
+    global databan, time  # подключаем переменную databan к функции (даем право изменять её)
 
     if message.reply_to_message is None or str(message.chat.id) != chat_id:  # если сообщение не ответ или не в нужном чате – то...
         return  # закрываем функцию
 
+    if datetime.now() < time:  # если нынешнее время меньше чем надо то
+        await bot.send_message(chat_id=chat_id, text=f"@{message.from_user.username} репорт уже отправлен, пожалуйста подожди немного до следующего!")  # пишем что репорт отправлен
+        await message.delete()  # удаляем сообщение
+        return  # закрываем функцию
+
+    time = datetime.now()+timedelta(seconds=int(report_sleep))  # время с задержкой
+
     databan["user"] = message.reply_to_message.from_user.id  # добавляем переменную с id пользователя на которого пожаловались в словарь
     databan["userwarn"] = message.from_user.id  # добавляем переменную с id пользователя, который отправил жб в словарь
     databan["msgid"] = message.reply_to_message.message_id  # добавляем id сообщения в словарь
+
+    ##############################################################################################################################################################################################
 
     Bwarn = InlineKeyboardButton("Предупреждение", callback_data="warn")
     Bwarn_rep = InlineKeyboardButton("Предупреждение отправителю", callback_data="warn_rep")
@@ -92,14 +102,14 @@ async def report(message):  # при комманде /report выполнятс
 
 
 @dp.callback_query_handler()  # если мы нажали на кнопку то
-async def warn(callback):  # если мы нажали на "предупреждение" то
+async def button(callback):
     global databan  # подключаем переменную databan к функции
 
     if callback.data == 'warn':
         nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
         nn = nn.username  # достаем юзернейм из nn
 
-        db = pickledb.load(f"BAN.txt", True)  # подгружаем базу данных (по id чата и слову BAN после)
+        db = pickledb.load(f"warn.txt", True)  # подгружаем базу данных (по id чата и слову BAN после)
         value = db.get(str( databan["user"] ))  # получаем кол-во предупреждений (по умолчанию их 0)
         db.set(str( databan["user"] ), value + 1)  # ставим на одно предупреждение больше
 
@@ -108,9 +118,30 @@ async def warn(callback):  # если мы нажали на "предупреж
         if value > int(nums2ban) - 1:  # если кол-во предупреждений больше чем задано в файле настроек то
             db.set(str(databan["user"]), 1)  # сбрасываем количество предупреждений
 
-            await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
+            db = pickledb.load(f"BANS.txt", True)  # подгружаем базу данных
+            value = db.get(str( databan["user"] ))  # получем значение: бан или кол-во часов на мут
 
-            await bot.ban_chat_member(chat_id, databan['user'])  # баним пользователя
+            if not value:  # если значение пустое то
+                db.set(str( databan["user"] ), "6")  # ставим что мут на 6 часов
+                await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["user"], until_date=datetime.now() + timedelta(seconds=hour))  # мут пользователя на час
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на час!")  # пишем что забанили пользователя на час
+            elif value == "ban":  # если значение равно ban то
+                db.set(str( databan["user"] ), False)  # делаем значение бана как false
+                await bot.ban_chat_member(chat_id, databan['user'])  # баним пользователя
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен!")  # пишем что забанили пользователя
+            else:  # если значение не пустое и не равно ban то
+                if value == "6":  # если значение равно 6 то
+                    db.set(str( databan["user"] ), "12")  # ставим что мут на 12 часов
+                    await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["user"], until_date=datetime.now() + timedelta(seconds=hour*6))  # мут пользователя на 6 часов
+                    await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 6 часов!")  # пишем что забанили пользователя на 6 часов
+                if value == "12":  # если значение равно 12 то
+                    db.set(str( databan["user"] ), "24")  # ставим что мут на сутки
+                    await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["user"], until_date=datetime.now() + timedelta(seconds=hour*12))  # мут пользователя на 12 часов
+                    await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 12 часов!")  # пишем что забанили пользователя на 12 часов
+                if value == "24":  # если значение равно 24 то
+                    db.set(str( databan["user"] ), "ban")  # ставим что дальше бан
+                    await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["user"], until_date=datetime.now() + timedelta(seconds=hour*24))  # мут пользователя на сутки
+                    await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 24 часа!")  # пишем что забанили пользователя на сутки
 
         await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
@@ -127,9 +158,30 @@ async def warn(callback):  # если мы нажали на "предупреж
         if value > int(nums2ban) - 1:  # если кол-во предупреждений больше чем задано в файле настроек то
             db.set(str(databan["userwarn"]), 1)  # сбрасываем количество предупреждений
 
-            await bot.send_message(chat_id, f"@{nn} забанен по решению администрации за репорты без причин!")  # пишем что забанили пользователя
+            db = pickledb.load(f"BANS.txt", True)  # подгружаем базу данных
+            value = db.get(str( databan["userwarn"] ))  # получем значение: бан или кол-во часов на мут
 
-            await bot.ban_chat_member(chat_id, databan['userwarn'])  # баним пользователя
+            if not value:  # если значение пустое то
+                db.set(str( databan["userwarn"] ), "6")  # ставим что мут на 6 часов
+                await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour))  # мут пользователя на час
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на час!")  # пишем что забанили пользователя на час
+            elif value == "ban":  # если значение равно ban то
+                db.set(str( databan["userwarn"] ), False)  # делаем значение бана как false
+                await bot.ban_chat_member(chat_id, databan['userwarn'])  # баним пользователя
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен!")  # пишем что забанили пользователя
+            else:  # если значение не пустое и не равно ban то
+                if value == "6":  # если значение равно 6 то
+                    db.set(str( databan["userwarn"] ), "12")  # ставим что мут на 12 часов
+                    await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour*6))  # мут пользователя на 6 часов
+                    await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 6 часов!")  # пишем что забанили пользователя на 6 часов
+                if value == "12":  # если значение равно 12 то
+                    db.set(str( databan["userwarn"] ), "24")  # ставим что мут на сутки
+                    await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour*12))  # мут пользователя на 12 часов
+                    await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 12 часов!")  # пишем что забанили пользователя на 12 часов
+                if value == "24":  # если значение равно 24 то
+                    db.set(str( databan["userwarn"] ), "ban")  # ставим что дальше бан
+                    await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour*24))  # мут пользователя на сутки
+                    await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 24 часа!")  # пишем что забанили пользователя на сутки
 
         await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
@@ -137,9 +189,30 @@ async def warn(callback):  # если мы нажали на "предупреж
         nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
         nn = nn.username  # достаем юзернейм из nn
 
-        await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
+        db = pickledb.load(f"BANS.txt", True)  # подгружаем базу данных
+        value = db.get(str( databan["userwarn"] ))  # получем значение: бан или кол-во часов на мут
 
-        await bot.ban_chat_member(chat_id, databan['user'])  # баним пользователя
+        if not value:  # если значение пустое то
+            db.set(str( databan["user"] ), "6")  # ставим что мут на 6 часов
+            await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["user"], until_date=datetime.now() + timedelta(seconds=hour))  # мут пользователя на час
+            await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на час!")  # пишем что забанили пользователя на час
+        elif value == "ban":  # если значение равно ban то
+            db.set(str( databan["user"] ), False)  # делаем значение бана как false
+            await bot.ban_chat_member(chat_id, databan['user'])  # баним пользователя
+            await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен!")  # пишем что забанили пользователя
+        else:  # если значение не пустое и не равно ban то
+            if value == "6":  # если значение равно 6 то
+                db.set(str( databan["user"] ), "12")  # ставим что мут на 12 часов
+                await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["user"], until_date=datetime.now() + timedelta(seconds=hour*6))  # мут пользователя на 6 часов
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 6 часов!")  # пишем что забанили пользователя на 6 часов
+            if value == "12":  # если значение равно 12 то
+                db.set(str( databan["user"] ), "24")  # ставим что мут на сутки
+                await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["user"], until_date=datetime.now() + timedelta(seconds=hour*12))  # мут пользователя на 12 часов
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 12 часов!")  # пишем что забанили пользователя на 12 часов
+            if value == "24":  # если значение равно 24 то
+                db.set(str( databan["user"] ), "ban")  # ставим что дальше бан
+                await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["user"], until_date=datetime.now() + timedelta(seconds=hour*24))  # мут пользователя на сутки
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 24 часа!")  # пишем что забанили пользователя на сутки
 
         await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
@@ -147,9 +220,30 @@ async def warn(callback):  # если мы нажали на "предупреж
         nn = await bot.get_chat(databan['userwarn'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
         nn = nn.username  # достаем юзернейм из nn
 
-        await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
+        db = pickledb.load(f"BANS.txt", True)  # подгружаем базу данных
+        value = db.get(str( databan["userwarn"] ))  # получем значение: бан или кол-во часов на мут
 
-        await bot.ban_chat_member(chat_id, databan['userwarn'])  # баним пользователя
+        if not value:  # если значение пустое то
+            db.set(str( databan["userwarn"] ), "6")  # ставим что мут на 6 часов
+            await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour))  # мут пользователя на час
+            await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на час!")  # пишем что забанили пользователя на час
+        elif value == "ban":  # если значение равно ban то
+            db.set(str( databan["userwarn"] ), False)  # делаем значение бана как false
+            await bot.ban_chat_member(chat_id, databan['userwarn'])  # баним пользователя
+            await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен!")  # пишем что забанили пользователя
+        else:  # если значение не пустое и не равно ban то
+            if value == "6":  # если значение равно 6 то
+                db.set(str( databan["userwarn"] ), "12")  # ставим что мут на 12 часов
+                await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour*6))  # мут пользователя на 6 часов
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 6 часов!")  # пишем что забанили пользователя на 6 часов
+            if value == "12":  # если значение равно 12 то
+                db.set(str( databan["userwarn"] ), "24")  # ставим что мут на сутки
+                await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour*12))  # мут пользователя на 12 часов
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 12 часов!")  # пишем что забанили пользователя на 12 часов
+            if value == "24":  # если значение равно 24 то
+                db.set(str( databan["userwarn"] ), "ban")  # ставим что дальше бан
+                await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour*24))  # мут пользователя на сутки
+                await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 24 часа!")  # пишем что забанили пользователя на сутки
 
         await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
