@@ -91,93 +91,73 @@ async def report(message):  # при комманде /report выполнятс
             sleep(0.01)  # засыпание программы на 1 сотою секунды
 
 
-@dp.callback_query_handler(lambda c: c.data == 'warn')  # если мы нажали на "предупреждение" то
-async def warn(_):  # если мы нажали на "предупреждение" то
+@dp.callback_query_handler()  # если мы нажали на кнопку то
+async def warn(callback):  # если мы нажали на "предупреждение" то
     global databan  # подключаем переменную databan к функции
 
-    nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
-    nn = nn.username  # достаем юзернейм из nn
+    if callback.data == 'warn':
+        nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
+        nn = nn.username  # достаем юзернейм из nn
 
-    db = pickledb.load(f"BAN.txt", True)  # подгружаем базу данных (по id чата и слову BAN после)
-    value = db.get(str( databan["user"] ))  # получаем кол-во предупреждений (по умолчанию их 0)
-    db.set(str( databan["user"] ), value + 1)  # ставим на одно предупреждение больше
+        db = pickledb.load(f"BAN.txt", True)  # подгружаем базу данных (по id чата и слову BAN после)
+        value = db.get(str( databan["user"] ))  # получаем кол-во предупреждений (по умолчанию их 0)
+        db.set(str( databan["user"] ), value + 1)  # ставим на одно предупреждение больше
 
-    await bot.send_message(chat_id, f"@{nn} если будете нарушать правила, то будете забанены (предупреждение {str(int(value))}/{nums2ban} и оно выдано администрацией)!")  # пишем что пользователь будет забанен
+        await bot.send_message(chat_id, f"@{nn} если будете нарушать правила, то будете забанены (предупреждение {str(int(value))}/{nums2ban} и оно выдано администрацией)!")  # пишем что пользователь будет забанен
 
-    if value > int(nums2ban) - 1:  # если кол-во предупреждений больше чем задано в файле настроек то
-        db.set(str(databan["user"]), 1)  # сбрасываем количество предупреждений
+        if value > int(nums2ban) - 1:  # если кол-во предупреждений больше чем задано в файле настроек то
+            db.set(str(databan["user"]), 1)  # сбрасываем количество предупреждений
+
+            await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
+
+            await bot.ban_chat_member(chat_id, databan['user'])  # баним пользователя
+
+        await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
+
+    if callback.data == 'warn_rep':
+        nn = await bot.get_chat(databan['userwarn']) # записываем в переменную nn (nickname) данные о пользователе который отправил жб
+        nn = nn.username  # достаем юзернейм из nn
+
+        db = pickledb.load(f"BAN.txt", True)  # подгружаем базу данных (по id чата и слову BAN после)
+        value = db.get(str( databan["userwarn"] ))  # получаем кол-во предупреждений (по умолчанию их 0)
+        db.set(str( databan["userwarn"] ), value + 1)  # ставим на одно предупреждение больше
+
+        await bot.send_message(chat_id, f"@{nn} если будете кидать репорты без причины, то будете забанены (предупреждение {str(int(value))}/{nums2ban} и оно выдано администрацией)!")  # пишем что пользователь будет забанен
+
+        if value > int(nums2ban) - 1:  # если кол-во предупреждений больше чем задано в файле настроек то
+            db.set(str(databan["userwarn"]), 1)  # сбрасываем количество предупреждений
+
+            await bot.send_message(chat_id, f"@{nn} забанен по решению администрации за репорты без причин!")  # пишем что забанили пользователя
+
+            await bot.ban_chat_member(chat_id, databan['userwarn'])  # баним пользователя
+
+        await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
+
+    if callback.data == 'ban':
+        nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
+        nn = nn.username  # достаем юзернейм из nn
 
         await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
 
         await bot.ban_chat_member(chat_id, databan['user'])  # баним пользователя
 
-    await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
+        await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
-    databan = {}  # сбрасываем данные о репорте
+    if callback.data == 'ban_rep':
+        nn = await bot.get_chat(databan['userwarn'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
+        nn = nn.username  # достаем юзернейм из nn
 
-
-@dp.callback_query_handler(lambda c: c.data == 'warn_rep')  # если мы нажали на "предупреждение отправителю" то
-async def warn_rep(_):  # если мы нажали на "предупреждение отправителю" то
-    global databan  # подключаем переменную databan к функции
-
-    nn = await bot.get_chat(databan['userwarn']) # записываем в переменную nn (nickname) данные о пользователе который отправил жб
-    nn = nn.username  # достаем юзернейм из nn
-
-    db = pickledb.load(f"BAN.txt", True)  # подгружаем базу данных (по id чата и слову BAN после)
-    value = db.get(str( databan["userwarn"] ))  # получаем кол-во предупреждений (по умолчанию их 0)
-    db.set(str( databan["userwarn"] ), value + 1)  # ставим на одно предупреждение больше
-
-    await bot.send_message(chat_id, f"@{nn} если будете кидать репорты без причины, то будете забанены (предупреждение {str(int(value))}/{nums2ban} и оно выдано администрацией)!")  # пишем что пользователь будет забанен
-
-    if value > int(nums2ban) - 1:  # если кол-во предупреждений больше чем задано в файле настроек то
-        db.set(str(databan["userwarn"]), 1)  # сбрасываем количество предупреждений
-
-        await bot.send_message(chat_id, f"@{nn} забанен по решению администрации за репорты без причин!")  # пишем что забанили пользователя
+        await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
 
         await bot.ban_chat_member(chat_id, databan['userwarn'])  # баним пользователя
 
-    await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
+        await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
-    databan = {}  # сбрасываем данные о репорте
+    if callback.data == 'delete':
+        nn = await bot.get_chat(databan['userwarn'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
+        nn = nn.username  # достаем юзернейм из nn
 
-
-@dp.callback_query_handler(lambda c: c.data == 'ban')  # если мы нажали на "бан" то
-async def ban(_):  # если мы нажали на "бан" то
-    global databan  # подключаем переменную databan к функции
-
-    nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
-    nn = nn.username  # достаем юзернейм из nn
-
-    await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
-
-    await bot.ban_chat_member(chat_id, databan['user'])  # баним пользователя
-
-    await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
-
-    databan = {}  # сбрасываем данные о репорте
-
-
-@dp.callback_query_handler(lambda c: c.data == 'ban_rep')  # если мы нажали на "бан отправителю" то
-async def ban_rep(_):  # если мы нажали на "бан отправителю" то
-    global databan  # подключаем переменную databan к функции
-
-    nn = await bot.get_chat(databan['user_rep'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
-    nn = nn.username  # достаем юзернейм из nn
-
-    await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
-
-    await bot.ban_chat_member(chat_id, databan['userwarn'])  # баним пользователя
-
-    await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
-
-    databan = {}  # сбрасываем данные о репорте
-
-
-@dp.callback_query_handler(lambda c: c.data == 'delete')  # если мы нажали на "удаление сообщения" то
-async def delete(_):  # если мы нажали на "удаление сообщения" то
-    global databan  # подключаем переменную databan к функции
-
-    await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
+        await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
     databan = {}  # сбрасываем данные о репорте
 
