@@ -161,12 +161,12 @@ async def ban(_):  # если мы нажали на "бан" то
 async def ban_rep(_):  # если мы нажали на "бан отправителю" то
     global databan  # подключаем переменную databan к функции
 
-    nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
+    nn = await bot.get_chat(databan['user_rep'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
     nn = nn.username  # достаем юзернейм из nn
 
     await bot.send_message(chat_id, f"@{nn} забанен по решению администрации!")  # пишем что забанили пользователя
 
-    await bot.ban_chat_member(chat_id, databan['user'])  # баним пользователя
+    await bot.ban_chat_member(chat_id, databan['userwarn'])  # баним пользователя
 
     await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
