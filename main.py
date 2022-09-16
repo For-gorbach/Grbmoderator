@@ -5,13 +5,11 @@ from time import sleep  # импорт функции паузы
 import json  # библиотека для упрощенной работы со словарями
 import pickledb  # библиотека для простых баз данных
 import re  # регулярки
-from datetime import datetime, timedelta  # модуль для работы с временем
-
+from datetime import datetime, timedelta  # библиотека для работы с временем
+import os  # библиотека для работы с системой (тут она просто для удаления файлов с жб)
 
 bot = Bot(token=token)  # создаем клиент бота
 dp = Dispatcher(bot)  # "диспетчер" бота (для запуска и обозначения функций)
-
-#  bmessage = json.dumps(dict(message), indent=4, sort_keys=True, ensure_ascii=False)  # делаем красивый словарь из компонентов сообщения (чат, пользователь, текст или стикер и прочие значения)
 
 databan = {}  # данные о репортах
 
@@ -51,11 +49,14 @@ async def report(message):  # при комманде /report выполнятс
 
     ##############################################################################################################################################################################################
 
-    Bwarn = InlineKeyboardButton("Предупреждение", callback_data="warn")
-    Bwarn_rep = InlineKeyboardButton("Предупреждение отправителю", callback_data="warn_rep")
-    Bban = InlineKeyboardButton("Бан", callback_data="ban")
-    Bban_rep = InlineKeyboardButton("Бан отправителю", callback_data="ban_rep")
-    Bdelete = InlineKeyboardButton("Удалить сообщение", callback_data="delete")
+    with open(f"{message.from_user.id}on{message.reply_to_message.from_user.id}", "w") as f:
+        f.write(f"'user': {message.reply_to_message.from_user.id}, 'userwarn': {message.from_user.id}, 'msgid': {message.reply_to_message.message_id}")
+
+    Bwarn = InlineKeyboardButton("Предупреждение", callback_data=f"warn {message.from_user.id}on{message.reply_to_message.from_user.id}")
+    Bwarn_rep = InlineKeyboardButton("Предупреждение отправителю", callback_data=f"warn_rep {message.from_user.id}on{message.reply_to_message.from_user.id}")
+    Bban = InlineKeyboardButton("Бан", callback_data=f"ban {message.from_user.id}on{message.reply_to_message.from_user.id}")
+    Bban_rep = InlineKeyboardButton("Бан отправителю", callback_data=f"ban_rep {message.from_user.id}on{message.reply_to_message.from_user.id}")
+    Bdelete = InlineKeyboardButton("Удалить сообщение", callback_data=f"delete {message.from_user.id}on{message.reply_to_message.from_user.id}")
 
     # все от Bwarn до Bdelete это создание кнопок
 
@@ -66,8 +67,7 @@ async def report(message):  # при комманде /report выполнятс
     await message.delete()  # удаляем сообщение репорта
 
     for i in admins:  # перебор админов
-        try:  # проверка на наличие ошибок
-
+        try:
             await bot.send_message(i.user.id, f"""
 🆘 Получена жалоба в группе {message.chat.title}
 
@@ -95,17 +95,23 @@ async def report(message):  # при комманде /report выполнятс
 
             else:  # если сообщение не гс, фото, видео или стикер – то отправляем текстовое сообщение
                 await bot.send_message(i.user.id, f'{message.reply_to_message.text}')  # отправляем сообщение
-
-        except Exception as ex:  # записываем ошибку в переменную ex
-            print(ex)  # пишем ошибку
-            sleep(0.01)  # засыпание программы на 1 сотою секунды
+        except Exception as ex:  # при ошибке в блоке try мы записываем её в перемнную ex и выполняем код внутри except
+            print(ex)
+            sleep(0.01)
 
 
 @dp.callback_query_handler()  # если мы нажали на кнопку то
 async def button(callback):
-    global databan  # подключаем переменную databan к функции
+    # global databan  # подключаем переменную databan к функции
+    with open(callback.data.split(" ")[1], "r") as f:
+        databan = json.loads(f"{{{f.read()}}}".replace("'", '"'))
+    btype = callback.data.split(" ")[0]
+    print(btype)
+    print(databan)
 
-    if callback.data == 'warn':
+    if btype == 'warn':
+        os.remove(callback.data.split(" ")[1])
+
         nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
         nn = nn.username  # достаем юзернейм из nn
 
@@ -145,8 +151,10 @@ async def button(callback):
 
         await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
-    if callback.data == 'warn_rep':
-        nn = await bot.get_chat(databan['userwarn']) # записываем в переменную nn (nickname) данные о пользователе который отправил жб
+    if btype == 'warn_rep':
+        os.remove(callback.data.split(" ")[1])
+
+        nn = await bot.get_chat(databan['userwarn'])  # записываем в переменную nn (nickname) данные о пользователе который отправил жб
         nn = nn.username  # достаем юзернейм из nn
 
         db = pickledb.load(f"BAN.txt", True)  # подгружаем базу данных (по id чата и слову BAN после)
@@ -183,14 +191,14 @@ async def button(callback):
                     await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour*24))  # мут пользователя на сутки
                     await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 24 часа!")  # пишем что забанили пользователя на сутки
 
-        await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
+    if btype == 'ban':
+        os.remove(callback.data.split(" ")[1])
 
-    if callback.data == 'ban':
         nn = await bot.get_chat(databan['user'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
         nn = nn.username  # достаем юзернейм из nn
 
         db = pickledb.load(f"BANS.txt", True)  # подгружаем базу данных
-        value = db.get(str( databan["userwarn"] ))  # получем значение: бан или кол-во часов на мут
+        value = db.get(str( databan["user"] ))  # получем значение: бан или кол-во часов на мут
 
         if not value:  # если значение пустое то
             db.set(str( databan["user"] ), "6")  # ставим что мут на 6 часов
@@ -216,7 +224,9 @@ async def button(callback):
 
         await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
 
-    if callback.data == 'ban_rep':
+    if btype == 'ban_rep':
+        os.remove(callback.data.split(" ")[1])
+
         nn = await bot.get_chat(databan['userwarn'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
         nn = nn.username  # достаем юзернейм из nn
 
@@ -245,9 +255,9 @@ async def button(callback):
                 await bot.restrict_chat_member(chat_id=chat_id, user_id=databan["userwarn"], until_date=datetime.now() + timedelta(seconds=hour*24))  # мут пользователя на сутки
                 await bot.send_message(chat_id=chat_id, text=f"@{nn} забанен на 24 часа!")  # пишем что забанили пользователя на сутки
 
-        await bot.delete_message(chat_id, databan["msgid"])  # удаляем сообщение
+    if btype == 'delete':
+        os.remove(callback.data.split(" ")[1])
 
-    if callback.data == 'delete':
         nn = await bot.get_chat(databan['userwarn'])  # записываем в переменную nn (nickname) данные о пользователе на которого пожаловались
         nn = nn.username  # достаем юзернейм из nn
 
