@@ -29,6 +29,7 @@ def main(token, chat_id, rules, start_message, doban, report_sleep, nums2ban, us
             if message.from_user.id == message.chat.id:  # если id пользователя = id чата (пользователь в лс с ботом) то
                 await bot.send_message(message.chat.id,
                                        f"Привет @{message.from_user.username}!\n{start_message}")  # отправляем сообщение в лс пользователю
+
         except Exception as ex:  # при ошибке в блоке try мы записываем её в перемнную ex и выполняем код внутри except
             print(ex)  # пишем ошибку
             sleep(0.1)  # засыпание программы на 1/10 секунды
@@ -364,7 +365,7 @@ def main(token, chat_id, rules, start_message, doban, report_sleep, nums2ban, us
 
     @dp.message_handler(content_types=["sticker", "text"])  # функция срабатывает на текст и стикеры
     async def main(message):  # функция срабатывает на текст и стикеры
-        if str(message.chat.id) != chat_id:  # если сообщение не в нужном чате – то...
+        if str(message.chat.id) != chat_id and message.from_user.id != int(message.chat.id):  # если сообщение не в нужном чате – то...
             return  # закрываем функцию
 
         await standart_ban(message)  # функция проверки на бан
@@ -400,12 +401,10 @@ def main(token, chat_id, rules, start_message, doban, report_sleep, nums2ban, us
 
         else:  # если сообщение не стикер то
             for word in bantext:  # перебор слов бан-листа
-                if re.search(word, "".join(message.text.lower().split(
-                        ' '))):  # если слово есть в сообщении (.lower() делает все сообщение с малых букв, это для упрощения проверки)
+                if re.search(word, "".join(message.text.lower().split(' '))):  # если слово есть в сообщении (.lower() делает все сообщение с малых букв, это для упрощения проверки)
                     block = 1  # записываем True в переменную block (она влияет банить ли пользователя, если будет False то нет)
                     for acceptword in accept:  # перебор разрешенных слов
-                        if re.search(word,
-                                     acceptword) and acceptword in message.text.lower():  # если плохое слово в разрешенном слове и разрешенное слово в сообщении то
+                        if re.search(word, acceptword) and acceptword in message.text.lower():  # если плохое слово в разрешенном слове и разрешенное слово в сообщении то
                             block = False  # меняем переменную бана на False (банить не будет)
                             break  # завершаем цикл
 
